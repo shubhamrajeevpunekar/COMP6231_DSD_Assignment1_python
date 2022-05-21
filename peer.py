@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO)
 repository = dict()
 peers = dict()
 repo_id = int(sys.argv[1])
-peer_discovery_udp_port = int(sys.argv[2])
-# erap_tcp_port = sys.argv[3]
+# erap_tcp_port = sys.argv[2]
+peer_discovery_udp_port = 12345 # hardcoded, could come from a system environment variable perhaps
 
 logging.info(f"Starting peer with repo ID: {repo_id} on peer protocol port: {peer_discovery_udp_port}")
 # When the peer starts, it broadcasts it's repository ID, TCP socket
