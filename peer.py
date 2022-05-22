@@ -4,7 +4,8 @@ import socket
 import logging
 import threading
 import time
-
+from peer_discovery_protocol import peer_discovery_loop, peer_advertising, peers
+from config import PEER_DISCOVERY_UDP_PORT
 # Each peer requires:
 # 1. Repository ID
 # 2. Data dictionary for the repository
@@ -12,52 +13,38 @@ import time
 # 3. TCP socket for Extended Repository Access Protocol (ERAP)
 # 4. UDP socket for receiving broadcasted peer discovery messages
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
 
 repository = dict()
-peers = dict()
 repo_id = int(sys.argv[1])
 # erap_tcp_port = sys.argv[2]
-peer_discovery_udp_port = 12345 # hardcoded, could come from a system environment variable perhaps
 
-logging.info(f"Starting peer with repo ID: {repo_id} on peer protocol port: {peer_discovery_udp_port}")
-# When the peer starts, it broadcasts it's repository ID, TCP socket
-bufferSize = 1024
-msgFromServer = "Hello UDP Client"
-bytesToSend = str.encode(msgFromServer)
+logger.info(f"Starting peer with repo ID: {repo_id} on peer protocol port: {PEER_DISCOVERY_UDP_PORT}")
 
 # Create a datagram socket and bind ip, port
-peer_protocol_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-peer_protocol_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-peer_protocol_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-peer_protocol_socket.bind(('', peer_discovery_udp_port))
+discovery_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+discovery_socket.bind(('', PEER_DISCOVERY_UDP_PORT))
 
-def peer_discovery_loop():
-    logging.info("DISCOVERY: Starting peer discovery")
-    while(True):
-        bytesAddressPair = peer_protocol_socket.recvfrom(bufferSize)
-        message = bytesAddressPair[0]
-        address = bytesAddressPair[1]
-        clientMsg = "DISCOVERY: Message from Client:{} @ Address: {}".format(message, address)
-        print(clientMsg)
-
-peer_discovery_listener_thread = threading.Thread(target=peer_discovery_loop)
+peer_discovery_listener_thread = threading.Thread(target=peer_discovery_loop, args=[discovery_socket, repo_id])
 peer_discovery_listener_thread.start()
-logging.info("MAIN: Peer discovery running")
+logger.info("MAIN: Peer discovery running")
 
-def peer_advertising_loop():
-    # broadcast repo id every n seconds
-    n = 5
-    logging.info(f"ADVERTISING: Starting peer advertising, broadcasting every {n} seconds")
-    counter = 0
+peer_advertising_thread = threading.Thread(target=peer_advertising, args=[repo_id])
+peer_advertising_thread.start()
+logger.info("MAIN: Peer advertising running")
+
+def testFunction():
     while(True):
-        logging.info(f"ADVERTISING: {counter}")
-        counter += 1
-        peer_protocol_socket.sendto(bytes(f"Repo: {repo_id}", "utf-8"), ("255.255.255.255", peer_discovery_udp_port))
-        time.sleep(n)
-
-peer_discovery_advertising_thread = threading.Thread(target=peer_advertising_loop)
-peer_discovery_advertising_thread.start()
-logging.info("MAIN: Peer advertising running")
+        text = input()
+        if text == "show":
+            print(peers)
+thread = threading.Thread(target=testFunction)
+thread.start()
 
 
