@@ -4,31 +4,29 @@ class Dictionary:
         self.dictionary = dict()
 
     def add(self, key, num):
-        if key in self.dictionary:
-            self.dictionary[key] = num
-            return True
-        return False
+        self.dictionary[key] = num
+        return num
 
     def set(self, key, num):
         if key not in self.dictionary:
-            return False
+            return "Error! Key not found for: " + key
         del self.dictionary[key]
         self.dictionary[key] = num
-        return True
+        return num
 
     def delete(self, key):
         if key not in self.dictionary:
-            return False
+            return "Error! Key not found for: " + key
         del self.dictionary[key]
-        return True
+        return ''
 
     def list(self):
-        return list(self.dictionary)
+        return list(self.dictionary).__str__()
 
     def get(self, key):
         if key not in self.dictionary:
-            return 'Error! Key not found for: ' + key
-        return self.dictionary.get(self, key)
+            return "Error! Key not found for: " + key
+        return self.dictionary[key]
 
     def getValues(self, key):
         if key not in self.dictionary:
@@ -55,7 +53,7 @@ class Dictionary:
         return maxNum
 
     def min(self, key):
-        if key not in self.dictionary:
+        if key not in self.dictionary.keys():
             return "Error! Key not found for: " + key
 
         minNum = self.dictionary[key]
