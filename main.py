@@ -13,7 +13,7 @@ consoleHandler.setFormatter(formatter)
 consoleHandler.setLevel(logging.DEBUG)
 logger.addHandler(consoleHandler)
 
-repo_id = int(sys.argv[1])
+repo_id = sys.argv[1]
 erap_tcp_port = int(sys.argv[2])
 
 peer = Peer(repo_id, PEER_DISCOVERY_UDP_PORT, erap_tcp_port)

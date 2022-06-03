@@ -43,7 +43,7 @@ class DiscoveryProtocol(Protocol):
             logger.info(peer_message)
 
             with self.peerLock:
-                advertised_repo_id = int(message.split(":")[0])
+                advertised_repo_id = message.split(":")[0]
                 advertised_port = int(message.split(":")[1])
                 self.peers[advertised_repo_id] = (address[0], advertised_port)
                 logger.info(
@@ -73,7 +73,7 @@ class DiscoveryProtocol(Protocol):
             logger.info(peer_message)
 
             with self.peerLock:
-                advertised_repo_id = int(message.split(":")[0])
+                advertised_repo_id = message.split(":")[0]
                 advertised_port = int(message.split(":")[1])
                 self.peers[advertised_repo_id] = (address[0], advertised_port)
                 logger.debug(
