@@ -4,6 +4,8 @@ import socket
 import logging
 import threading
 import time
+
+import erap_protocol
 from peer_discovery_protocol import peer_discovery_loop, peer_advertising, peers
 from config import PEER_DISCOVERY_UDP_PORT
 # Each peer requires:
@@ -21,7 +23,7 @@ logger.addHandler(ch)
 
 repository = dict()
 repo_id = int(sys.argv[1])
-# erap_tcp_port = sys.argv[2]
+erap_tcp_port = int(sys.argv[2])
 
 logger.info(f"Starting peer with repo ID: {repo_id} on peer protocol port: {PEER_DISCOVERY_UDP_PORT}")
 
@@ -31,13 +33,17 @@ discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 discovery_socket.bind(('', PEER_DISCOVERY_UDP_PORT))
 
-peer_discovery_listener_thread = threading.Thread(target=peer_discovery_loop, args=[discovery_socket, repo_id])
+peer_discovery_listener_thread = threading.Thread(target=peer_discovery_loop, args=[discovery_socket, repo_id, erap_tcp_port])
 peer_discovery_listener_thread.start()
 logger.info("MAIN: Peer discovery running")
 
-peer_advertising_thread = threading.Thread(target=peer_advertising, args=[repo_id])
+peer_advertising_thread = threading.Thread(target=peer_advertising, args=[repo_id, erap_tcp_port])
 peer_advertising_thread.start()
 logger.info("MAIN: Peer advertising running")
+
+erap_thread = threading.Thread(target=erap_protocol.erap, args=[repo_id, erap_tcp_port])
+erap_thread.start()
+logger.info("MAIN: ERAP tcp server running")
 
 def testFunction():
     while(True):

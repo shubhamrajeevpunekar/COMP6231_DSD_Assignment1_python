@@ -14,7 +14,7 @@ peers = dict()
 peer_lock = Lock()
 bufferSize = 1024
 
-def peer_discovery_loop(discovery_socket: socket.socket, repo_id):
+def peer_discovery_loop(discovery_socket: socket.socket, repo_id, erap_tcp_port):
     logger.info("DISCOVERY: Starting peer discovery")
     while(True):
 
@@ -35,8 +35,8 @@ def peer_discovery_loop(discovery_socket: socket.socket, repo_id):
             logger.info(f"DISCOVERY: Responding back to {address} with {repo_id}")
             discovery_socket.sendto(bytes(f"{repo_id}", "utf-8"), address)
 
-def peer_advertising(repo_id):
-    logger.info(f"ADVERTISING: broadcasting Repo ID: {repo_id} TCP Port: TODO")
+def peer_advertising(repo_id, tcp_erap_protocol):
+    logger.info(f"ADVERTISING: broadcasting Repo ID: {repo_id} TCP Port: f{tcp_erap_protocol}")
 
     advertising_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     advertising_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
