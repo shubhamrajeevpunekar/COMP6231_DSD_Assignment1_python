@@ -22,7 +22,7 @@ def handle_client(conn:socket.socket, address):
 
         if len(data) == 0 or data.decode().startswith("quit"):
             conn.close()
-            logger.info("Closing connection: ", address)
+            logger.info(f"Closing connection: {address}")
 
             # connection closed
             conn.close()

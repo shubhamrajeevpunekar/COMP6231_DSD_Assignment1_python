@@ -5,7 +5,7 @@ import threading
 import logging
 
 import erap
-from discovery import peer_discovery_loop, peer_advertising, peers
+from discovery import peer_discovery_loop, peer_advertising
 from config import PEER_DISCOVERY_UDP_PORT
 
 # Each peer requires:
@@ -14,6 +14,7 @@ from config import PEER_DISCOVERY_UDP_PORT
 # 3. Dictionary for repository ids and sockets
 # 3. TCP socket for Extended Repository Access Protocol (ERAP)
 # 4. UDP socket for receiving broadcasted peer discovery messages
+from repl import repl_protocol
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -45,13 +46,7 @@ peer_advertising_thread.start()
 erap_thread = threading.Thread(target=erap.tcp_listener, args=[repo_id, erap_tcp_port])
 erap_thread.start()
 
-
-def testFunction():
-    while (True):
-        text = input()
-        if text == "show":
-            print(peers)
+repl_thread = threading.Thread(target=repl_protocol)
+repl_thread.start()
 
 
-thread = threading.Thread(target=testFunction)
-thread.start()
