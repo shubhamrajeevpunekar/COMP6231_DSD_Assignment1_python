@@ -25,9 +25,6 @@ repository = dict()
 repo_id = int(sys.argv[1])
 erap_tcp_port = int(sys.argv[2])
 
-# erap_thread = threading.Thread(target=erap.tcp_listener, args=[repo_id, erap_tcp_port])
-# erap_thread.start()
-#
 # repl_thread = threading.Thread(target=repl_protocol)
 # repl_thread.start()
 
