@@ -41,7 +41,7 @@ def peer_discovery_loop(discovery_socket: socket.socket, repo_id, erap_tcp_port)
             advertised_repo_id = int(message.split(":")[0])
             advertised_port = int(message.split(":")[1])
             peers[advertised_repo_id] = (address[0], advertised_port)
-            logger.debug(f"Saved new repository with repo id: {advertised_repo_id} on erap tcp port: {advertised_port}")
+            logger.info(f"Saved new repository with repo id: {advertised_repo_id} on erap tcp port: {advertised_port}")
 
         # Respond by sending the details of this peer, so that they can be saved by new peer on the network
         # If message is from self i.e. same repo id, skip response

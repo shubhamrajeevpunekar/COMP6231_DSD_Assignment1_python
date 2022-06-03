@@ -16,7 +16,7 @@ def handle_client(conn:socket.socket, address):
         # data received from client
         data:bytes = conn.recv(1024)
 
-        logger.info(f"Received from client {address[0]}:{address[1]}: {data.decode()}")
+        logger.debug(f"Received from client {address[0]}:{address[1]}: {data.decode()}")
         # TODO: Exception to be handled, if the received data cannot be decoded as text
         # TODO: If the terminal with the telnet process is closed, the server keeps empty input indefinitely
 
@@ -41,7 +41,7 @@ def tcp_listener(repo_id, erap_tcp_port):
     while True:
         (conn, address) = s.accept()
         t = threading.Thread(target=handle_client, args=(conn, address))
-        logger.warning(f"Connected to client: {address[0]}:{address[1]}")
+        logger.info(f"Connected to client: {address[0]}:{address[1]}")
         t.daemon = True
         t.start()
     # TODO: Thread clean up once the connection is closed?
