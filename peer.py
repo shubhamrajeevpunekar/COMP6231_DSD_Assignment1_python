@@ -1,14 +1,16 @@
 from discovery import DiscoveryProtocol
 from erap import ERAPProtocol
-from repl import REPLProtocol
 from protocol import Protocol
+from repl import REPLProtocol
+from repository import Repository
+
 
 # TODO: Graceful server shutdown, on a "shutdown" repl command?
 class Peer(Protocol):
     def __init__(self, repoID, discoveryUDPPort, erapTCPPort):
         super().__init__(repoID, discoveryUDPPort, erapTCPPort)
         self.peers = dict()
-        self.repo = dict()  # TODO: to be replaced with Repository
+        self.repo = Repository()
 
         self.discoveryProtocol = DiscoveryProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.peers)
         self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort)
