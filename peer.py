@@ -1,5 +1,6 @@
 from discovery import DiscoveryProtocol
 from erap import ERAPProtocol
+from repl import REPLProtocol
 from protocol import Protocol
 
 # TODO: Graceful server shutdown, on a "shutdown" repl command?
@@ -11,7 +12,7 @@ class Peer(Protocol):
 
         self.discoveryProtocol = DiscoveryProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.peers)
         self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort)
-        # self.replProtocol = REPLProtocl()
+        self.replProtocol = REPLProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self)
 
     def __str__(self):
         return f"Peer with repoID: {self.repoID}, discoveryUDPPort: {self.discoveryUDPPort}, erapTCPPort: {self.erapTCPPort}"
@@ -19,4 +20,4 @@ class Peer(Protocol):
     def run(self):
         self.discoveryProtocol.run()
         self.erapProtocol.run()
-        # self.replProtocol.start()
+        self.replProtocol.run()
