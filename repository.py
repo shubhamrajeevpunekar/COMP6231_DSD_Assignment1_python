@@ -9,7 +9,7 @@ consoleHandler.setFormatter(formatter)
 consoleHandler.setLevel(logging.DEBUG)
 logger.addHandler(consoleHandler)
 
-
+# TODO: Add debug logs
 class Repository:
     def __init__(self):
         self.data = dict()
@@ -20,7 +20,7 @@ class Repository:
             self.data[key] = list()
         self.data[key].append(value)
 
-    def update(self, key, values: list):
+    def set(self, key, values: list):
         """If key exists, set the given list for the given key"""
         self.data[key] = values
 
@@ -36,14 +36,14 @@ class Repository:
         # TODO: if entries contain quotes, properly escape them
         return list(self.data.keys())
 
-    def getValue(key, self):
+    def getValue(self, key):
         """If key exists, return the first value in the list for the given key"""
         if key in self.data:
             return self.data[key][0]
         else:
             return None
 
-    def getValues(key, self):
+    def getValues(self, key):
         """If key exists, return the list"""
         if key in self.data:
             return self.data[key]

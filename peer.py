@@ -10,10 +10,10 @@ class Peer(Protocol):
     def __init__(self, repoID, discoveryUDPPort, erapTCPPort):
         super().__init__(repoID, discoveryUDPPort, erapTCPPort)
         self.peers = dict()
-        self.repo = Repository()
+        self.repository = Repository()
 
         self.discoveryProtocol = DiscoveryProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.peers)
-        self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort)
+        self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.repository)
         self.replProtocol = REPLProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self)
 
     def __str__(self):
