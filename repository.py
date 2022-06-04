@@ -53,7 +53,7 @@ class Repository:
     def aggregate(self, key, func):
         """Aggregate all elements associated with a key with specified function"""
         funcs = {"max": max, "min": min, "sum": sum, "avg": statistics.mean}
-        if key in self.data:
+        if key in self.data and func in funcs:
             return funcs[func](self.data[key])
         else:
             return None

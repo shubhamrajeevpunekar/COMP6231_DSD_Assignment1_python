@@ -24,5 +24,6 @@ class REPLProtocol(Protocol):
                 print()
         # Add commands for the following
         # TODO: Show clients
+        # TODO: Show the peer repository data
         # TODO: graceful shutdown
         # TODO: re-advertise

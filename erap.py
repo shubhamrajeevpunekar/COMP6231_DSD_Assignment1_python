@@ -71,67 +71,83 @@ class ERAPProtocol(Protocol):
             logger.critical(f"Received dirty bytes: {request}")
 
     # TODO: Add debug logs for responses
+    # TODO: Updated errors to be sent back to the client
     def performRepositoryOperation(self, repositoryOperation: list):
         try:
             operation = repositoryOperation[0].lower()
             if operation == "add":
+                key, value = repositoryOperation[1], int(repositoryOperation[2])
                 with self.repositoryLock:
-                    self.repository.add(repositoryOperation[1], int(repositoryOperation[2]))
-                return "OK\n".encode()
+                    self.repository.add(key, value)
+                logger.debug(
+                    f"Added {key} -> {value}")
+                return f"OK, added {key} -> {value}\n".encode()
             elif operation == "set":
+                key, values = repositoryOperation[1], list([int(_) for _ in repositoryOperation[2:]])
                 with self.repositoryLock:
-                    self.repository.set(repositoryOperation[1], list([int(_) for _ in repositoryOperation[2:]]))
-                return "OK\n".encode()
+                    self.repository.set(key, values)
+                logger.debug(f"Set {key} -> {values}")
+                return f"OK, set {key} -> {values}\n".encode()
             elif operation == "delete":
                 with self.repositoryLock:
                     self.repository.delete(repositoryOperation[1])  # will throw KeyError if key does not exist
-                return "OK\n".encode()
+                logger.debug(f"Deleted key {repositoryOperation[1]}")
+                return f"OK, deleted key {repositoryOperation[1]}\n".encode()
             elif operation == "keys":
                 with self.repositoryLock:
-                    result = "OK " + ", ".join([str(_) for _ in self.repository.keys()]) + "\n"
+                    if self.repository.keys():
+                        result = "OK " + ", ".join([str(_) for _ in self.repository.keys()]) + "\n"
+                    else:
+                        result = "OK, empty repository\n"
+                logger.debug(f'Keys: {", ".join([str(_) for _ in self.repository.keys()])}')
                 return result.encode()
             elif operation == "get":
                 with self.repositoryLock:
                     value = self.repository.getValue(repositoryOperation[1])
                 if value is not None:
-                    return (str(value)+"\n").encode()
+                    logger.debug(f"Key: {repositoryOperation[1]} -> {value}")
+                    return ("OK " + str(value) + "\n").encode()
                 else:
-                    return "ERROR\n".encode()
+                    logger.debug(f"missing key {repositoryOperation[1]}")
+                    return f"ERROR, missing key {repositoryOperation[1]}\n".encode()
             elif operation == "gets":
                 with self.repositoryLock:
                     values = self.repository.getValues(repositoryOperation[1])
                 if values is not None:
+                    logger.debug(f"Key: {repositoryOperation[1]} -> {values}")
                     result = "OK " + ", ".join([str(_) for _ in values]) + "\n"
                     return result.encode()
                 else:
-                    return "ERROR\n".encode()
+                    return f"ERROR, missing key {repositoryOperation[1]}\n".encode()
             elif operation == "aggregate":
                 key, func = repositoryOperation[1], repositoryOperation[2]
                 with self.repositoryLock:
                     aggregated = self.repository.aggregate(key, func)
                 if aggregated is not None:
-                    return (str(aggregated) + "\n").encode()
+                    logger.debug(f"Aggregate: {key} : {func} -> {aggregated}")
+                    return ("OK " + str(aggregated) + "\n").encode()
                 else:
-                    return "ERROR\n".encode()
+                    return f"ERROR, missing key or function in {repositoryOperation[1:]}\n".encode()
             elif operation == "reset":
                 with self.repositoryLock:
                     self.repository.reset()
+                logger.debug("Reset repository")
                 return "OK\n".encode()
             else:
-                logging.critical(f"Malformed repository operation: {repositoryOperation}")
-                return "ERROR\n".encode()
+                logger.critical(f"Malformed repository operation: {repositoryOperation}")
+                return f"ERROR, malformed operation {repositoryOperation}\n".encode()
         except IndexError:
-            logging.critical(f"Malformed repository operation: {repositoryOperation}")
-            return "ERROR\n".encode()
+            logger.critical(f"Malformed repository operation: {repositoryOperation}")
+            return f"ERROR, malformed operation {repositoryOperation}\n".encode()
         except ValueError:
-            logging.critical(f"Type conversion failed: {repositoryOperation}")
-            return "ERROR\n".encode()
+            logger.critical(f"Type conversion failed: {repositoryOperation}")
+            return f"ERROR, type conversion failed in {repositoryOperation}\n".encode()
         except KeyError:
-            logging.critical(f"Non existent key provided: {repositoryOperation}")
-            return "ERROR\n".encode()
+            logger.critical(f"Non existent key provided: {repositoryOperation}")
+            return f"ERROR, key missing in {repositoryOperation}\n".encode()
         except Exception:
-            logging.exception(f"Error occurred for: {repositoryOperation}")
-            return "ERROR\n".encode()
+            logger.exception(f"Error occurred for: {repositoryOperation}")
+            return f"ERROR, malformed operation {repositoryOperation}\n".encode()
 
     def run(self):
         erap_thread = threading.Thread(target=self.tcp_listener)
