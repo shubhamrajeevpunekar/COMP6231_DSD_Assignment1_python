@@ -117,6 +117,9 @@ class ERAPProtocol(Protocol):
                 with self.repositoryLock:
                     self.repository.reset()
                 return "OK\n".encode()
+            else:
+                logging.critical(f"Malformed repository operation: {repositoryOperation}")
+                return "ERROR\n".encode()
         except IndexError:
             logging.critical(f"Malformed repository operation: {repositoryOperation}")
             return "ERROR\n".encode()
