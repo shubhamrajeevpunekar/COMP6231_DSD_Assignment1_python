@@ -10,7 +10,7 @@ localAddress = (localIP, localPort)
 TCPSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 TCPSocket.bind(localAddress)
-TCPSocket.listen(1024)
+TCPSocket.listen(10)
 
 conn, address = TCPSocket.accept()
 conn.sendall("Welcome to Distributed Repositories\033[2;0H".encode())
@@ -18,8 +18,8 @@ conn.sendall("Welcome to Distributed Repositories\033[2;0H".encode())
 dic = Dictionary()
 line = ''
 
-while (True):
-    data = conn.recv(1024).decode()
+while True:
+    data = conn.recv(2048).decode()
     # print(data)
     line += data
     if line.__contains__('\n'):
