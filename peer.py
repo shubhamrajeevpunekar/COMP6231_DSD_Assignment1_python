@@ -39,6 +39,8 @@ def peer_discovery_loop():
         message = bytesAddressPair[0]
         address = bytesAddressPair[1]
         clientMsg = "DISCOVERY: Message from Client:{} @ Address: {}".format(message, address)
+        client_tcp_thread = threading.Thread(target=client_connection(address))
+        client_tcp_thread.start()
         print(clientMsg)
 
 peer_discovery_listener_thread = threading.Thread(target=peer_discovery_loop)
@@ -60,4 +62,10 @@ peer_discovery_advertising_thread = threading.Thread(target=peer_advertising_loo
 peer_discovery_advertising_thread.start()
 logging.info("MAIN: Peer advertising running")
 
-
+def client_connection(address):
+    logging.info(f"Connecting to client using TCP with address: {address}")
+    client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+    #client_socket.bind(address)
+    client_socket.connect(address)
+    client_socket.sendall("ADD a 2".encode())
+    client_socket.close()
