@@ -14,13 +14,15 @@ logger.addHandler(consoleHandler)
 
 
 class ERAPProtocol(Protocol):
-    def __init__(self, repoID, discoveryUDPPort, erapTCPPort, repository):
+    def __init__(self, repoID, discoveryUDPPort, erapTCPPort, repository, peers):
         super().__init__(repoID, discoveryUDPPort, erapTCPPort)
+        self.peers = peers
         self.repository = repository
         self.repositoryLock = threading.Lock()
         self.socket = None
         self.clients = []
         self.clientThreads = []
+        self.erapTCPSocket = None
         # TODO: Save client threads for graceful shutdown
 
     def tcp_listener(self):
@@ -59,16 +61,96 @@ class ERAPProtocol(Protocol):
                 break
             else:
                 repositoryOperation = self.parseClientRequest(data)
+                if "including" in repositoryOperation:
+                    # indicates a distribute aggregate operation
+                    self.performDistributedRepositoryAggregateOperation(repositoryOperation)
+
                 logger.debug(f"Performing {repositoryOperation} on repository {self.repoID}")
                 result = self.performRepositoryOperation(repositoryOperation)
                 conn.send(result)
 
     def parseClientRequest(self, request: bytes):
         try:
-            request = request.decode("utf-8").rstrip()
-            return request.split(" ")
+            request = request.decode("utf-8").rstrip().split(" ")
+            request = [_.lower() for _ in request]
+            return request
         except UnicodeDecodeError:
             logger.critical(f"Received dirty bytes: {request}")
+
+    def performRemoteRAPfromProxy(self, repoID, repositoryOperation):
+        # Will return False if the remote operation fails
+        try:
+            remoteRepoAddress = self.peers[repoID]  # read access, no need to lock
+            # establish tcp connection with the server
+            self.erapTCPSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.erapTCPSocket.connect(remoteRepoAddress)
+            logger.info(f"Connected from {self.repoID} to remote repo: {repoID}:{remoteRepoAddress}")
+            repositoryOperation = " ".join(repositoryOperation)
+            self.erapTCPSocket.send(repositoryOperation.encode())
+            logger.debug(f"Sent request from proxy {self.repoID} to {repoID}: {repositoryOperation}")
+            result = self.erapTCPSocket.recv(2048)
+            logger.debug(f"Received response at proxy{self.repoID} from {repoID}: {result}")
+            self.erapTCPSocket.close()
+            logger.info(f"Detached connection from proxy {self.repoID} to {repoID}")
+            return result
+        except KeyError:
+            logger.critical(f"No repository with ID: {repoID}")
+            return False
+
+    def performDistributedRepositoryAggregateOperation(self, repositoryOperation):
+
+        def error(reason):  # closure for logging errors local to this function, and returning with error
+            logger.critical(f"Error in distributed repository operation: {reason}")
+            return f"Error in distributed repository operation: {reason}".encode()
+
+        # distributed aggregate functions
+        # should get collections for the specified key from the given repositories first
+        # if a repository does not exist, skip it
+        # if one of the repositories doesn't have the key, skip it
+        # if all the repositories do not have the key, return an error
+        # return the result with list of repositories which have the key
+
+        def getsFromRepository(key, repoID):
+            repositoryOperation = ("gets", key)
+            result = self.performRemoteRAPfromProxy(repoID, repositoryOperation)
+            if result is False:
+                logger.debug(f"Proxy {self.repoID} got no values for {key} from {repoID}")
+                return []
+            else:
+                print(result)
+
+        def getValuesFromRemoteRepos(key, repoIDs):
+            values = []
+            for repoID in repoIDs:
+                # values += getsFromRepository(key, repoID)
+                print(getsFromRepository(key, repoID))
+            return values
+
+        def dmax(key, repoIDs):
+            values = getValuesFromRemoteRepos(key, repoIDs)
+            print(values)
+        def dmin(key, repositories):
+            values = getValuesFromRemoteRepos(key, repoIDs)
+            print(values)
+        def dsum(key, repositories):
+            values = getValuesFromRemoteRepos(key, repoIDs)
+            print(values)
+        def davg(key, repositories):
+            values = getValuesFromRemoteRepos(key, repoIDs)
+            print(values)
+
+        operations = {"dmax":dmax, "dmin":dmin, "dsum":dsum, "davg":davg}
+
+        try:
+            operation, key, including, repoIDs = repositoryOperation[0], repositoryOperation[1], \
+                                                      repositoryOperation[2], repositoryOperation[3:]
+            result = operations[operation](key, repoIDs)
+            if result is None:
+                error(f"Key {key} is not present in any of the repositories")
+            else:
+                return str(result).encode()
+        except IndexError:
+            error(repositoryOperation)
 
     # TODO: Add debug logs for responses
     # TODO: Updated errors to be sent back to the client
