@@ -75,7 +75,7 @@ class ERAPProtocol(Protocol):
                     line = ""
 
     def checkRepo(self, request):
-        if "." in request[1]:
+        if len(request) > 2 and "." in request[1]:
             key = request[1].split(".")
             repo = key[0]
             if repo in self.peers:
@@ -87,8 +87,10 @@ class ERAPProtocol(Protocol):
                         if repo == keys:
                             return self.sendClient(' '.join(request), self.peers[repo])
                     logger.critical(f"Error, no repository with ID {repo}")
+                    return f"Error, no repository with ID {repo}\n".encode()
             else:
                 logger.critical(f"Error, no repository with ID {repo}")
+                return f"Error, no repository with ID {repo}\n".encode()
         return self.performRepositoryOperation(request)
 
     def parseClientRequest(self, request):
