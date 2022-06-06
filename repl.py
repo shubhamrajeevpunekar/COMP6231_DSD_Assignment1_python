@@ -19,11 +19,8 @@ class REPLProtocol(Protocol):
 
         while (True):
             text = input()
-            if text == "show":
+            if text == "peers":
                 print(self.peer.peers)
                 print()
-        # Add commands for the following
-        # TODO: Show clients
-        # TODO: Show the peer repository data
-        # TODO: graceful shutdown
-        # TODO: re-advertise
+            if text == "data":
+                print(self.peer.repository.data)
