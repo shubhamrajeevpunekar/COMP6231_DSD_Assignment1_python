@@ -1,5 +1,6 @@
 import logging
 import socket
+import statistics
 import threading
 
 from protocol import Protocol
@@ -23,6 +24,7 @@ class ERAPProtocol(Protocol):
         self.clients = []
         self.clientThreads = []
         self.erapTCPSocket = None
+        self.distributedOperations = {"dmax", "dmin", "dsum", "davg"}
         # TODO: Save client threads for graceful shutdown
 
     def tcp_listener(self):
@@ -85,7 +87,7 @@ class ERAPProtocol(Protocol):
             self.erapTCPSocket.send(repositoryOperation.encode())
             logger.debug(f"Sent request from proxy {self.repoID} to {repoID}: {repositoryOperation}")
             result = self.erapTCPSocket.recv(2048)
-            if "ready" in result.decode():
+            if "ready" in result.decode():  # will occur everytime, as each connection is freshly made
                 result = self.erapTCPSocket.recv(2048)
             logger.debug(f"Received response at proxy{self.repoID} from {repoID}: {result}")
             self.erapTCPSocket.close()
@@ -95,70 +97,73 @@ class ERAPProtocol(Protocol):
             logger.critical(f"No repository with ID: {repoID}")
             return False
 
-    def performDistributedRepositoryAggregateOperation(self, repositoryOperation):
-
-        def error(reason):  # closure for logging errors local to this function, and returning with error
-            logger.critical(f"Error in distributed repository operation: {reason}")
-            return f"Error in distributed repository operation: {reason}".encode()
-
-        # distributed aggregate functions
+    def performDistributedRepositoryAggregateOperation(self, operation, key, repoIDs):
         # should get collections for the specified key from the given repositories first
         # if a repository does not exist, skip it
         # if one of the repositories doesn't have the key, skip it
         # if all the repositories do not have the key, return an error
         # return the result with list of repositories which have the key
 
-        def getsFromRepository(key, repoID):
-            repositoryOperation = ("gets", key)
-            result = self.performRemoteRAPfromProxy(repoID, repositoryOperation)
-            if result is False:
-                logger.debug(f"Proxy {self.repoID} got no values for {key} from {repoID}")
-                return []
-            else:
-                result = result.decode()
-                # result will be of the format : "OK 5, 10"
-                result = result.replace(",", "") # get rid of the commas between elements
-                result = result.split(" ")[1:] # "Skip the OK
-                result = [int(_) for _ in result]
-                return result
+        def getsFromRepo(key, repoID):
+            if repoID == self.repoID:
+                logger.debug(f"Getting values for key {key} from same repository {repoID}")
+                values = self.repository.getValues(key)
+                if values is None:  # key does not exist
+                    values = []
+                logger.debug(f"For repo {repoID}: {key} -> {values}")
+                return values
+            else:  # remote repository
+                repositoryOperation = ("gets", key)
+                result = self.performRemoteRAPfromProxy(repoID, repositoryOperation)
+                if result is False:  # repoID doesn't exist, or failed to connect to repo, in which case, return []
+                    logger.debug(f"Proxy {self.repoID} failed to perform operation on {repoID}")
+                    return []
+                else:
+                    result = result.decode()
+                    # result will be of the format : "OK 5, 10" or "ERROR, missing key a"
+                    if "OK" in result:
+                        result = result.replace(",", "")  # get rid of the commas between elements
+                        result = result.split(" ")[1:]  # "Skip the OK
+                        result = [int(_) for _ in result]
+                    elif "ERROR" in result:
+                        result = []
+                    logger.debug(f"From proxy {self.repoID}, For repo {repoID}: {key} -> {result}")
+                    return result
 
-        def getValuesFromRemoteRepos(key, repoIDs):
+        def getValuesFromRepos(key, repoIDs):
+            repos = []
             values = []
             for repoID in repoIDs:
-                repoValues = getsFromRepository(key, repoID)
-                logger.debug(f"Recived at proxy {self.repoID} from {repoID}: {key} -> {repoValues}")
-                values += repoValues
-
-            return values
+                repoValues = getsFromRepo(key, repoID)
+                if repoValues:
+                    values += repoValues
+                    repos.append(repoID)
+            # if no repos are provided, repos, values are empty
+            logger.debug(f"Valid repos having {key}: {repos}, combined list: {values}")
+            return repos, values
 
         def dmax(key, repoIDs):
-            values = getValuesFromRemoteRepos(key, repoIDs)
-            print(values)
-        def dmin(key, repositories):
-            values = getValuesFromRemoteRepos(key, repoIDs)
-            print(values)
-        def dsum(key, repositories):
-            values = getValuesFromRemoteRepos(key, repoIDs)
-            return sum(values)
-        def davg(key, repositories):
-            values = getValuesFromRemoteRepos(key, repoIDs)
-            print(values)
+            return distributedOperation(key, repoIDs, max)
 
-        operations = {"dmax":dmax, "dmin":dmin, "dsum":dsum, "davg":davg}
+        def dmin(key, repoIDs):
+            return distributedOperation(key, repoIDs, min)
 
-        try:
-            operation, key, including, repoIDs = repositoryOperation[0], repositoryOperation[1], \
-                                                      repositoryOperation[2], repositoryOperation[3:]
-            result = operations[operation](key, repoIDs)
-            if result is None:
-                error(f"Key {key} is not present in any of the repositories")
+        def dsum(key, repoIDs):
+            return distributedOperation(key, repoIDs, sum)
+
+        def davg(key, repoIDs):
+            return distributedOperation(key, repoIDs, statistics.mean)
+
+        def distributedOperation(key, repoIDs, op):
+            repos, values = getValuesFromRepos(key, repoIDs)
+            if values:
+                return repos, op(values)
             else:
-                return str(result).encode()
-        except IndexError:
-            error(repositoryOperation)
+                return None  # the only way None is returned if key isn't found in any of the specified repos
 
-    # TODO: Add debug logs for responses
-    # TODO: Updated errors to be sent back to the client
+        operations = {"dmin": dmin, "dmax": dmax, "dsum": dsum, "davg": davg}
+        return operations[operation](key, repoIDs)
+
     def performRepositoryOperation(self, repositoryOperation: list):
         try:
             operation = repositoryOperation[0].lower()
@@ -222,9 +227,25 @@ class ERAPProtocol(Protocol):
                 return "OK\n".encode()
             elif "including" in repositoryOperation:
                 # indicates a distribute aggregate operation
-                distributedAggregate = self.performDistributedRepositoryAggregateOperation(repositoryOperation)
-                logger.debug(f"Distributed aggregate: {str(distributedAggregate)}")
-                return ("OK " + str(distributedAggregate) + "\n").encode()
+                try:
+                    operation, key, including, repoIDs = repositoryOperation[0], repositoryOperation[1], \
+                                                         repositoryOperation[2], repositoryOperation[3:]
+                    if operation not in self.distributedOperations:
+                        logger.critical(f"ERROR, incorrect distributed operation: {operation}")
+                        return f"ERROR, incorrect distributed operation: {operation}\n".encode()
+                except IndexError:
+                    logger.critical("Malformed distributed repository operation")
+                    return f"ERROR, malformed operation {repositoryOperation}\n".encode()
+
+                distributedAggregatedResult = self.performDistributedRepositoryAggregateOperation(operation, key,
+                                                                                                  repoIDs)
+                if distributedAggregatedResult is not None:
+                    repos, distributedAggregate = distributedAggregatedResult
+                    logger.debug(f"Distributed aggregate: {repos}, {distributedAggregate}")
+                    return (f"OK from [{', '.join(repos)}]: aggregated value: {distributedAggregate}\n").encode()
+                else:
+                    # reponse is None, which means the given key is not present in any of the valid repos
+                    return "ERROR: key missing from valid repos\n".encode()
             else:
                 logger.critical(f"Malformed repository operation: {repositoryOperation}")
                 return f"ERROR, malformed operation {repositoryOperation}\n".encode()
