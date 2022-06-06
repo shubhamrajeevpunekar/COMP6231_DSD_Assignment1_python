@@ -13,7 +13,7 @@ class Peer(Protocol):
         self.repository = Repository()
 
         self.discoveryProtocol = DiscoveryProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.peers)
-        self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.repository)
+        self.erapProtocol = ERAPProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self.repository, self.peers)
         self.replProtocol = REPLProtocol(self.repoID, self.discoveryUDPPort, self.erapTCPPort, self)
 
     def __str__(self):
