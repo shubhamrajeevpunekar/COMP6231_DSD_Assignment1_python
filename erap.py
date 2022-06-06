@@ -70,7 +70,8 @@ class ERAPProtocol(Protocol):
                     repositoryOperation = self.parseClientRequest(line)
                     logger.debug(f"Performing {repositoryOperation} on repository {self.repoID}")
                     result = self.checkRepo(repositoryOperation)
-                    conn.send(result + "\033[N".encode() + "\033[100D".encode())
+                    # conn.send(result + "\033[N".encode() + "\033[100D".encode())
+                    conn.send(result)
                     line = ""
 
     def checkRepo(self, request):
@@ -106,9 +107,9 @@ class ERAPProtocol(Protocol):
             s.send(c.encode())
         s.send("\n".encode())
         s.send(" ".encode())
-        #greeting = s.recv(1024).decode()
-        data = s.recv(1024).decode()
-        logger.debug(f"received data from TCP server: '{data}' as a client with ID {self.repoID}")
+        greeting = s.recv(1024)
+        data = s.recv(1024)
+        logger.debug(f"received data from TCP server: '{data.decode()}' as a client with ID {self.repoID}")
         s.close()
         return data
 
