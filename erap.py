@@ -39,7 +39,7 @@ class ERAPProtocol(Protocol):
             self.clients.append(address)
             t = threading.Thread(target=self.handle_client, args=(conn, address))
             logger.info(f"Connected to client: {address[0]}:{address[1]}")
-            conn.send(f"OK Repository {self.repoID} ready\033[2;0H".encode("utf-8"))
+            conn.send(f"OK Repository {self.repoID} ready\n".encode("utf-8"))
             t.daemon = True
             self.clientThreads.append(t)
             t.start()
@@ -124,7 +124,7 @@ class ERAPProtocol(Protocol):
             self.erapTCPSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.erapTCPSocket.connect(remoteRepoAddress)
             logger.info(f"Connected from {self.repoID} to remote repo: {repoID}:{remoteRepoAddress}")
-            repositoryOperation = " ".join(repositoryOperation)
+            repositoryOperation = " ".join(repositoryOperation) + "\n"
             self.erapTCPSocket.send(repositoryOperation.encode())
             logger.debug(f"Sent request from proxy {self.repoID} to {repoID}: {repositoryOperation}")
             result = self.erapTCPSocket.recv(2048)
