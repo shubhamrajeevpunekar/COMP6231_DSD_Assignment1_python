@@ -61,10 +61,6 @@ class ERAPProtocol(Protocol):
                 break
             else:
                 repositoryOperation = self.parseClientRequest(data)
-                if "including" in repositoryOperation:
-                    # indicates a distribute aggregate operation
-                    self.performDistributedRepositoryAggregateOperation(repositoryOperation)
-
                 logger.debug(f"Performing {repositoryOperation} on repository {self.repoID}")
                 result = self.performRepositoryOperation(repositoryOperation)
                 conn.send(result)
@@ -89,6 +85,8 @@ class ERAPProtocol(Protocol):
             self.erapTCPSocket.send(repositoryOperation.encode())
             logger.debug(f"Sent request from proxy {self.repoID} to {repoID}: {repositoryOperation}")
             result = self.erapTCPSocket.recv(2048)
+            if "ready" in result.decode():
+                result = self.erapTCPSocket.recv(2048)
             logger.debug(f"Received response at proxy{self.repoID} from {repoID}: {result}")
             self.erapTCPSocket.close()
             logger.info(f"Detached connection from proxy {self.repoID} to {repoID}")
@@ -117,13 +115,20 @@ class ERAPProtocol(Protocol):
                 logger.debug(f"Proxy {self.repoID} got no values for {key} from {repoID}")
                 return []
             else:
-                print(result)
+                result = result.decode()
+                # result will be of the format : "OK 5, 10"
+                result = result.replace(",", "") # get rid of the commas between elements
+                result = result.split(" ")[1:] # "Skip the OK
+                result = [int(_) for _ in result]
+                return result
 
         def getValuesFromRemoteRepos(key, repoIDs):
             values = []
             for repoID in repoIDs:
-                # values += getsFromRepository(key, repoID)
-                print(getsFromRepository(key, repoID))
+                repoValues = getsFromRepository(key, repoID)
+                logger.debug(f"Recived at proxy {self.repoID} from {repoID}: {key} -> {repoValues}")
+                values += repoValues
+
             return values
 
         def dmax(key, repoIDs):
@@ -134,7 +139,7 @@ class ERAPProtocol(Protocol):
             print(values)
         def dsum(key, repositories):
             values = getValuesFromRemoteRepos(key, repoIDs)
-            print(values)
+            return sum(values)
         def davg(key, repositories):
             values = getValuesFromRemoteRepos(key, repoIDs)
             print(values)
@@ -215,6 +220,11 @@ class ERAPProtocol(Protocol):
                     self.repository.reset()
                 logger.debug("Reset repository")
                 return "OK\n".encode()
+            elif "including" in repositoryOperation:
+                # indicates a distribute aggregate operation
+                distributedAggregate = self.performDistributedRepositoryAggregateOperation(repositoryOperation)
+                logger.debug(f"Distributed aggregate: {str(distributedAggregate)}")
+                return ("OK " + str(distributedAggregate) + "\n").encode()
             else:
                 logger.critical(f"Malformed repository operation: {repositoryOperation}")
                 return f"ERROR, malformed operation {repositoryOperation}\n".encode()
