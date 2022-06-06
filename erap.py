@@ -39,13 +39,14 @@ class ERAPProtocol(Protocol):
             self.clients.append(address)
             t = threading.Thread(target=self.handle_client, args=(conn, address))
             logger.info(f"Connected to client: {address[0]}:{address[1]}")
-            conn.send(f"OK Repository {self.repoID} ready\n".encode("utf-8"))
+            conn.send(f"OK Repository {self.repoID} ready\033[2;0H".encode("utf-8"))
             t.daemon = True
             self.clientThreads.append(t)
             t.start()
         # TODO: Thread clean up once the connection is closed?
 
     def handle_client(self, conn: socket.socket, address):
+        line = ""
         while True:
             # data received from client
             data: bytes = conn.recv(1024)
@@ -62,18 +63,57 @@ class ERAPProtocol(Protocol):
                 conn.close()
                 break
             else:
-                repositoryOperation = self.parseClientRequest(data)
-                logger.debug(f"Performing {repositoryOperation} on repository {self.repoID}")
-                result = self.performRepositoryOperation(repositoryOperation)
-                conn.send(result)
+                line += data.decode()
+                if line.__contains__('\n'):
+                    if line == '\n':
+                        continue
+                    repositoryOperation = self.parseClientRequest(line)
+                    logger.debug(f"Performing {repositoryOperation} on repository {self.repoID}")
+                    result = self.checkRepo(repositoryOperation)
+                    conn.send(result + "\033[N".encode() + "\033[100D".encode())
+                    line = ""
 
-    def parseClientRequest(self, request: bytes):
+    def checkRepo(self, request):
+        if "." in request[1]:
+            key = request[1].split(".")
+            repo = key[0]
+            if repo in self.peers:
+                if repo == self.repoID:
+                    logger.debug(f"Changed {request[1]} to {key[1]} with repository {repo}")
+                    request[1] = key[1]
+                else:
+                    for keys in self.peers.keys():
+                        if repo == keys:
+                            return self.sendClient(' '.join(request), self.peers[repo])
+                    logger.critical(f"Error, no repository with ID {repo}")
+            else:
+                logger.critical(f"Error, no repository with ID {repo}")
+        return self.performRepositoryOperation(request)
+
+    def parseClientRequest(self, request):
         try:
-            request = request.decode("utf-8").rstrip().split(" ")
-            request = [_.lower() for _ in request]
+            request = request.rstrip().split(" ")
             return request
         except UnicodeDecodeError:
             logger.critical(f"Received dirty bytes: {request}")
+
+    def sendClient(self, request, address):
+        logger.debug(f"creating tcp connection with operation {request[0]} and key {request[1]} and ip {address}")
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.connect(address)
+        for c in request:
+            s.send(c.encode())
+        s.send("\n".encode())
+        s.send(" ".encode())
+        #greeting = s.recv(1024).decode()
+        data = s.recv(1024).decode()
+        logger.debug(f"received data from TCP server: '{data}' as a client with ID {self.repoID}")
+        s.close()
+        return data
+
+    # TODO: Add debug logs for responses
+    # TODO: Updated errors to be sent back to the client
 
     def performRemoteRAPfromProxy(self, repoID, repositoryOperation):
         # Will return False if the remote operation fails
